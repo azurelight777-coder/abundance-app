@@ -1,0 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-phthalo-900 text-gray-100 font-sans antialiased;
+    background-image: url('/fae-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-blend-mode: screen;
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior-y: none;
+  }
+}
+
+.glass-panel {
+  @apply bg-phthalo-800/60 backdrop-blur-md border border-oldgold-500/20 rounded-2xl shadow-xl;
+}
