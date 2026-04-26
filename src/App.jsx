@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Settings, PlusCircle, PiggyBank, X, Settings2, ChevronDown, ChevronRight, ChevronLeft, MoonStar, Archive, ArrowLeft, Trash2, Download, Upload } from 'lucide-react';
+import { Sparkles, Settings, PlusCircle, PiggyBank, X, Settings2, ChevronDown, ChevronRight, ChevronLeft, MoonStar, Archive, ArrowLeft, Trash2, Download, Upload, Bell, BellOff } from 'lucide-react';
 
 const BASE_AMOUNT = 1000;
 const CYCLE_LENGTH = 28;
+const WORKER_URL = 'https://abundance-worker.azurelight777.workers.dev';
+const VAPID_PUBLIC_KEY = 'BMF_mcldm-j8m-KKBFwNidFP1FvWv00llcZeXb3cKJOt1NgyZE1VvF_QQrmaltwq88ZwFcvRkTknLNuA9RW-Fak';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
 
 function App() {
   const [startDate, setStartDate] = useState(null);
@@ -27,6 +38,76 @@ function App() {
   const [selectedArchiveDate, setSelectedArchiveDate] = useState(null);
 
   const fileInputRef = useRef(null);
+
+  const [notificationStatus, setNotificationStatus] = useState('idle');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    navigator.serviceWorker.ready.then(async (reg) => {
+      const sub = await reg.pushManager.getSubscription();
+      setIsSubscribed(!!sub);
+    }).catch(() => {});
+  }, []);
+
+  const enableNotifications = async () => {
+    setNotificationStatus('working');
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('This browser does not support notifications.');
+        setNotificationStatus('idle');
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setNotificationStatus('idle');
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+      const startISO = localStorage.getItem('manifestationStartDate') || new Date().toISOString();
+      const rate = Number(localStorage.getItem('manifestationRate') || exchangeRate);
+      const res = await fetch(`${WORKER_URL}/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON(), startDate: startISO, rate }),
+      });
+      if (!res.ok) throw new Error('subscribe failed');
+      setIsSubscribed(true);
+      setNotificationStatus('idle');
+    } catch (err) {
+      console.error(err);
+      alert('Could not enable notifications. Try again.');
+      setNotificationStatus('idle');
+    }
+  };
+
+  const disableNotifications = async () => {
+    setNotificationStatus('working');
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch(`${WORKER_URL}/unsubscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        }).catch(() => {});
+        await sub.unsubscribe();
+      }
+      setIsSubscribed(false);
+      setNotificationStatus('idle');
+    } catch (err) {
+      console.error(err);
+      setNotificationStatus('idle');
+    }
+  };
 
   useEffect(() => {
     let storedDate = localStorage.getItem('manifestationStartDate');
@@ -585,6 +666,21 @@ function App() {
               <p className="text-xs text-phthalo-700">
                 Updating this shifts the value of all past flows.
               </p>
+
+              <div className="border-t border-phthalo-700/50 pt-4 mt-2">
+                <label className="block text-xs font-medium text-oldgold-500/60 uppercase tracking-widest mb-3">Daily Pulse</label>
+                <button
+                  onClick={isSubscribed ? disableNotifications : enableNotifications}
+                  disabled={notificationStatus === 'working'}
+                  className={`w-full flex items-center justify-center gap-2 font-medium py-2.5 rounded-xl text-sm transition-colors ${isSubscribed ? 'bg-oldgold-500/20 text-oldgold-300 hover:bg-oldgold-500/30 border border-oldgold-500/40' : 'bg-phthalo-700 hover:bg-phthalo-600 text-gray-200'}`}
+                >
+                  {isSubscribed ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                  {notificationStatus === 'working' ? 'Working...' : isSubscribed ? 'Daily Pulse Enabled' : 'Enable Daily Pulse'}
+                </button>
+                <p className="text-xs text-phthalo-700 mt-2">
+                  Each day's deposit notification will arrive in Jupiter's hour for that day.
+                </p>
+              </div>
 
               <div className="border-t border-phthalo-700/50 pt-4 mt-2">
                 <label className="block text-xs font-medium text-oldgold-500/60 uppercase tracking-widest mb-3">Backup</label>
