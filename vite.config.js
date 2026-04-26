@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['cat.png', 'dragon.png', 'manta.png', 'sakura_dragon.png', 'ancient_dragon.png', 'fae-bg.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Abundance Manifestation',
         short_name: 'Abundance',
@@ -15,18 +16,21 @@ export default defineConfig({
         theme_color: '#011F13',
         background_color: '#011F13',
         display: 'standalone',
+        orientation: 'portrait',
         start_url: '/abundance-app/',
         scope: '/abundance-app/',
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
@@ -35,6 +39,9 @@ export default defineConfig({
             purpose: 'maskable'
           }
         ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}']
       }
     })
   ]

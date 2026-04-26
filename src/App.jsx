@@ -46,13 +46,18 @@ function App() {
     if (startDate) {
       const calculateDays = () => {
         const now = new Date();
-        const diffTime = Math.abs(now - startDate);
+        // Use calendar-date diff so the day rolls over at midnight,
+        // regardless of what time the app was first opened.
+        const startLocal = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        const nowLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diffTime = nowLocal - startLocal;
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
         setDaysActive(diffDays);
       };
 
       calculateDays();
-      const interval = setInterval(calculateDays, 1000 * 60 * 60);
+      // Re-check once per minute so day flips right at midnight
+      const interval = setInterval(calculateDays, 1000 * 60);
       return () => clearInterval(interval);
     }
   }, [startDate]);
@@ -86,6 +91,8 @@ function App() {
   const toggleDateExpansion = (dateStr) => {
     setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
   };
+
+  const BASE_URL = import.meta.env.BASE_URL;
 
   if (!startDate) return null;
 
@@ -287,7 +294,7 @@ function App() {
         {/* Savings Vault */}
         <div className="bg-phthalo-800/50 border border-phthalo-700/50 rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center gap-2 mb-2 text-blue-300">
-            <img src="/dragon.png" className="w-8 h-8 object-contain mix-blend-screen" alt="Dragon" />
+            <img src={`${BASE_URL}dragon.png`} className="w-8 h-8 object-contain mix-blend-screen" alt="Dragon" />
             <span className="font-semibold tracking-wide text-sm">Savings Vault</span>
           </div>
           <p className="text-xl font-bold break-all text-blue-200">{formatCurrency(totalSavingsLKR)}</p>
@@ -296,7 +303,7 @@ function App() {
         {/* Today's Flow */}
         <div className="bg-phthalo-800/50 border border-phthalo-700/50 rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center gap-2 mb-2 text-oldgold-400">
-            <img src="/manta.png" className="w-8 h-8 object-contain mix-blend-screen -scale-x-100" alt="Manta Ray" />
+            <img src={`${BASE_URL}manta.png`} className="w-8 h-8 object-contain mix-blend-screen -scale-x-100" alt="Manta Ray" />
             <span className="font-semibold tracking-wide text-sm">Today's Flow</span>
           </div>
           <p className="text-xl font-bold break-all text-oldgold-400">{formatCurrency(BASE_AMOUNT * daysActive * exchangeRate)}</p>
@@ -306,7 +313,7 @@ function App() {
       <section className="flex-1 flex flex-col gap-4">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <img src="/cat.png" className="w-6 h-6 object-contain rounded-full" alt="Black Cat" />
+            <img src={`${BASE_URL}cat.png`} className="w-6 h-6 object-contain rounded-full" alt="Black Cat" />
             <h3 className="text-lg font-semibold text-oldgold-400">Today's Ledger</h3>
           </div>
           <button 
@@ -331,9 +338,9 @@ function App() {
         </div>
       </section>
 
-      {/* Sleeping Ancient Sakura Dragon */}
+      {/* Sleeping Sakura Dragon */}
       <div className="flex justify-center mt-8 mb-4 opacity-80 mix-blend-screen pointer-events-none">
-        <img src="/ancient_dragon.png" className="w-full max-w-sm object-contain" alt="Ancient Sakura Dragon" />
+        <img src={`${BASE_URL}sakura_dragon.png`} className="w-full max-w-sm object-contain" alt="Sleeping Sakura Dragon" />
       </div>
 
       <div className="fixed bottom-6 right-6 z-20">
