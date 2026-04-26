@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Settings, PlusCircle, PiggyBank, X, Settings2, ChevronDown, ChevronRight, ChevronLeft, MoonStar, Archive, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Sparkles, Settings, PlusCircle, PiggyBank, X, Settings2, ChevronDown, ChevronRight, ChevronLeft, MoonStar, Archive, ArrowLeft, Trash2, Download, Upload } from 'lucide-react';
 
-const BASE_AMOUNT = 500;
+const BASE_AMOUNT = 1000;
+const CYCLE_LENGTH = 28;
 
 function App() {
   const [startDate, setStartDate] = useState(null);
@@ -24,6 +25,8 @@ function App() {
   // Calendar State
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedArchiveDate, setSelectedArchiveDate] = useState(null);
+
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let storedDate = localStorage.getItem('manifestationStartDate');
@@ -97,28 +100,94 @@ function App() {
     setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
   };
 
+  const handleDeleteTx = (id) => {
+    const updated = userTx.filter(t => t.id !== id);
+    setUserTx(updated);
+    localStorage.setItem('manifestationTx', JSON.stringify(updated));
+  };
+
+  const handleToggleManifested = (id) => {
+    const updated = userTx.map(t => t.id === id ? { ...t, manifested: !t.manifested } : t);
+    setUserTx(updated);
+    localStorage.setItem('manifestationTx', JSON.stringify(updated));
+  };
+
+  const handleExport = () => {
+    const data = {
+      startDate: localStorage.getItem('manifestationStartDate'),
+      rate: localStorage.getItem('manifestationRate'),
+      transactions: localStorage.getItem('manifestationTx'),
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `abundance-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.startDate) {
+          localStorage.setItem('manifestationStartDate', data.startDate);
+          setStartDate(new Date(data.startDate));
+        }
+        if (data.rate) {
+          localStorage.setItem('manifestationRate', data.rate);
+          setExchangeRate(Number(data.rate));
+        }
+        if (data.transactions) {
+          localStorage.setItem('manifestationTx', data.transactions);
+          setUserTx(JSON.parse(data.transactions));
+        }
+      } catch (err) {
+        alert('That backup file does not look right. Try again?');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const BASE_URL = import.meta.env.BASE_URL;
 
   if (!startDate) return null;
 
-  const totalDepositedUSD = BASE_AMOUNT * (daysActive * (daysActive + 1)) / 2;
+  // Cycle math: every 28 days the daily deposit doubles.
+  const cyclesCompleted = Math.floor((daysActive - 1) / CYCLE_LENGTH);
+  const currentCycle = cyclesCompleted + 1;
+  const dayOfCycle = ((daysActive - 1) % CYCLE_LENGTH) + 1;
+  const todayDailyUSD = BASE_AMOUNT * Math.pow(2, currentCycle - 1);
+
+  // Sum of past full cycles (geometric series) plus partial current cycle.
+  const pastCyclesUSD = CYCLE_LENGTH * BASE_AMOUNT * (Math.pow(2, cyclesCompleted) - 1);
+  const currentCycleSoFarUSD = dayOfCycle * todayDailyUSD;
+  const totalDepositedUSD = pastCyclesUSD + currentCycleSoFarUSD;
   const totalDepositedLKR = totalDepositedUSD * exchangeRate;
 
   const totalSpentLKR = userTx.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amountLKR, 0);
   const totalSavingsLKR = userTx.filter(t => t.type === 'savings').reduce((sum, t) => sum + t.amountLKR, 0);
-  
+
   const currentBalanceLKR = totalDepositedLKR - totalSpentLKR - totalSavingsLKR;
 
   const systemDeposits = Array.from({ length: daysActive }).map((_, i) => {
     const day = daysActive - i;
-    const usd = BASE_AMOUNT * day;
+    const cycleForDay = Math.ceil(day / CYCLE_LENGTH);
+    const dayOfThatCycle = ((day - 1) % CYCLE_LENGTH) + 1;
+    const usd = BASE_AMOUNT * Math.pow(2, cycleForDay - 1);
     const lkr = usd * exchangeRate;
     const txDate = new Date(startDate);
     txDate.setDate(txDate.getDate() + day - 1);
-    
+
     return {
       id: `dep-${day}`,
-      desc: `Abundance Flow (Day ${day})`,
+      desc: `Abundance Flow · Cycle ${cycleForDay} · Day ${dayOfThatCycle}`,
       amountLKR: lkr,
       amountUSD: usd,
       type: 'deposit',
@@ -184,19 +253,42 @@ function App() {
         {isExpanded && (
           <div className="bg-phthalo-900/50 p-2 border-t border-phthalo-800/50">
             {group.transactions.sort((a,b) => new Date(b.date) - new Date(a.date)).map(tx => (
-              <div key={tx.id} className="flex justify-between items-center p-3 border-b border-phthalo-800/30 last:border-0">
-                <div className="flex-1 min-w-0 pr-4">
-                  <p className="text-sm font-medium text-gray-300 truncate">{tx.desc}</p>
+              <div key={tx.id} className={`flex justify-between items-center p-3 border-b border-phthalo-800/30 last:border-0 ${tx.manifested ? 'bg-oldgold-500/5' : ''}`}>
+                <div className="flex-1 min-w-0 pr-3">
+                  <div className="flex items-center gap-1.5">
+                    {tx.manifested && <Sparkles className="w-3.5 h-3.5 text-oldgold-400 shrink-0" />}
+                    <p className={`text-sm font-medium truncate ${tx.manifested ? 'text-oldgold-300' : 'text-gray-300'}`}>{tx.desc}</p>
+                  </div>
                 </div>
-                <div className="text-right whitespace-nowrap text-sm">
-                  {tx.type === 'deposit' && (
-                    <p className="font-semibold text-emerald-400">+{formatCurrency(tx.amountLKR)}</p>
-                  )}
-                  {tx.type === 'expense' && (
-                    <p className="font-semibold text-red-400/80">-{formatCurrency(tx.amountLKR)}</p>
-                  )}
-                  {tx.type === 'savings' && (
-                    <p className="font-semibold text-blue-300">-{formatCurrency(tx.amountLKR)}</p>
+                <div className="flex items-center gap-2">
+                  <div className="text-right whitespace-nowrap text-sm">
+                    {tx.type === 'deposit' && (
+                      <p className="font-semibold text-emerald-400">+{formatCurrency(tx.amountLKR)}</p>
+                    )}
+                    {tx.type === 'expense' && (
+                      <p className="font-semibold text-red-400/80">-{formatCurrency(tx.amountLKR)}</p>
+                    )}
+                    {tx.type === 'savings' && (
+                      <p className="font-semibold text-blue-300">-{formatCurrency(tx.amountLKR)}</p>
+                    )}
+                  </div>
+                  {tx.type !== 'deposit' && (
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <button
+                        onClick={() => handleToggleManifested(tx.id)}
+                        title={tx.manifested ? 'Mark as not yet manifested' : 'Mark as manifested'}
+                        className={`p-1.5 rounded-md transition-colors ${tx.manifested ? 'text-oldgold-400 hover:text-oldgold-300' : 'text-phthalo-700 hover:text-oldgold-400'}`}
+                      >
+                        <Sparkles className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTx(tx.id)}
+                        title="Delete"
+                        className="p-1.5 rounded-md text-phthalo-700 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -274,7 +366,7 @@ function App() {
             <MoonStar className="text-oldgold-500 w-5 h-5" />
             High Magick
           </h1>
-          <p className="text-sm text-oldgold-500/60 tracking-wider uppercase text-xs mt-1">Cycle Day {daysActive}</p>
+          <p className="text-sm text-oldgold-500/60 tracking-wider uppercase text-xs mt-1">Cycle {currentCycle} · Day {dayOfCycle}</p>
         </div>
         <button onClick={() => setShowSettingsModal(true)} className="w-10 h-10 rounded-full bg-phthalo-800 border border-oldgold-500/30 flex items-center justify-center hover:bg-phthalo-700 transition-colors shadow-lg shadow-phthalo-900/50">
           <Settings className="text-oldgold-500/80 w-5 h-5" />
@@ -291,22 +383,22 @@ function App() {
       </section>
 
       <section className="grid grid-cols-2 gap-4">
-        {/* Savings Vault */}
+        {/* Dragon Hoard */}
         <div className="bg-phthalo-800/50 border border-phthalo-700/50 rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center gap-2 mb-2 text-blue-300">
             <img src={`${BASE_URL}dragon.png`} className="w-8 h-8 object-contain mix-blend-screen" alt="Dragon" />
-            <span className="font-semibold tracking-wide text-sm">Savings Vault</span>
+            <span className="font-semibold tracking-wide text-sm">Dragon Hoard</span>
           </div>
           <p className="text-xl font-bold break-all text-blue-200">{formatCurrency(totalSavingsLKR)}</p>
         </div>
-        
+
         {/* Today's Flow */}
         <div className="bg-phthalo-800/50 border border-phthalo-700/50 rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center gap-2 mb-2 text-oldgold-400">
             <img src={`${BASE_URL}manta.png`} className="w-8 h-8 object-contain mix-blend-screen -scale-x-100" alt="Manta Ray" />
             <span className="font-semibold tracking-wide text-sm">Today's Flow</span>
           </div>
-          <p className="text-xl font-bold break-all text-oldgold-400">{formatCurrency(BASE_AMOUNT * daysActive * exchangeRate)}</p>
+          <p className="text-xl font-bold break-all text-oldgold-400">{formatCurrency(todayDailyUSD * exchangeRate)}</p>
         </div>
       </section>
 
@@ -427,7 +519,7 @@ function App() {
                   Expenditure
                 </button>
                 <button type="button" onClick={() => setTxType('savings')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${txType === 'savings' ? 'bg-phthalo-700 text-blue-300 shadow-sm' : 'text-gray-400 hover:text-blue-300/70'}`}>
-                  To Vault
+                  To Hoard
                 </button>
               </div>
 
@@ -437,7 +529,7 @@ function App() {
                   type="text" 
                   value={txDesc}
                   onChange={(e) => setTxDesc(e.target.value)}
-                  placeholder={txType === 'expense' ? "e.g., Bought clothes" : "e.g., Dream vacation fund"}
+                  placeholder={txType === 'expense' ? "e.g., Bought clothes" : "e.g., Offering to the dragon familiars"}
                   className="w-full bg-phthalo-900/50 border border-phthalo-700 rounded-xl px-4 py-3 text-gray-100 placeholder-phthalo-700 focus:outline-none focus:border-oldgold-500 focus:ring-1 focus:ring-oldgold-500 transition-all"
                   required
                 />
@@ -458,7 +550,7 @@ function App() {
               </div>
               
               <button type="submit" className="w-full bg-oldgold-500 hover:bg-oldgold-400 text-phthalo-900 font-bold tracking-wide uppercase py-3.5 rounded-xl mt-4 transition-colors shadow-[0_0_15px_rgba(197,160,89,0.2)]">
-                {txType === 'expense' ? 'Into the Flow of Abundance' : 'Anchor Energy'}
+                {txType === 'expense' ? 'Into the Flow of Abundance' : 'Offer to the Hoard'}
               </button>
             </form>
           </div>
@@ -493,7 +585,37 @@ function App() {
               <p className="text-xs text-phthalo-700">
                 Updating this shifts the value of all past flows.
               </p>
-              
+
+              <div className="border-t border-phthalo-700/50 pt-4 mt-2">
+                <label className="block text-xs font-medium text-oldgold-500/60 uppercase tracking-widest mb-3">Backup</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExport}
+                    className="flex-1 flex items-center justify-center gap-2 bg-phthalo-700 hover:bg-phthalo-600 text-gray-200 font-medium py-2.5 rounded-xl text-sm transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-2 bg-phthalo-700 hover:bg-phthalo-600 text-gray-200 font-medium py-2.5 rounded-xl text-sm transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Import
+                  </button>
+                  <input
+                    type="file"
+                    accept="application/json"
+                    ref={fileInputRef}
+                    onChange={handleImport}
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-xs text-phthalo-700 mt-2">
+                  Save your history as a file, or restore from one.
+                </p>
+              </div>
+
               <button onClick={() => setShowSettingsModal(false)} className="w-full bg-phthalo-700 hover:bg-phthalo-600 text-gray-200 font-bold py-3 rounded-xl mt-4 transition-colors">
                 Close
               </button>
