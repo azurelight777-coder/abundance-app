@@ -17,8 +17,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Abundance Flow';
   const options = {
     body: data.body || 'Your daily abundance has arrived.',
-    icon: '/abundance-app/pwa-192x192.png',
-    badge: '/abundance-app/pwa-192x192.png',
+    icon: '/abundance-app/manta.png',
+    badge: '/abundance-app/manta.png',
     tag: 'abundance-daily',
     silent: true,
     data: { url: data.url || '/abundance-app/' },

@@ -3,7 +3,7 @@ import { Sparkles, Settings, PlusCircle, PiggyBank, X, Settings2, ChevronDown, C
 
 const BASE_AMOUNT = 1000;
 const CYCLE_LENGTH = 28;
-const WORKER_URL = 'https://abundance-worker.azurelight777.workers.dev';
+const WORKER_URL = 'https://sylvia.azurelight777.workers.dev';
 const VAPID_PUBLIC_KEY = 'BMF_mcldm-j8m-KKBFwNidFP1FvWv00llcZeXb3cKJOt1NgyZE1VvF_QQrmaltwq88ZwFcvRkTknLNuA9RW-Fak';
 
 function urlBase64ToUint8Array(base64String) {
