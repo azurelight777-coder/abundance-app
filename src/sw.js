@@ -11,17 +11,16 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (e) {
-    data = { title: 'Abundance Flow', body: event.data ? event.data.text() : '' };
+    try { data = { title: 'Sylvia', body: event.data.text() }; } catch (e2) { data = {}; }
   }
 
-  const title = data.title || 'Abundance Flow';
+  const title = data.title || 'Sylvia';
   const options = {
-    body: data.body || 'Your daily abundance has arrived.',
+    body: data.body || 'I bring you today\'s flow.',
     icon: '/abundance-app/manta.png',
     badge: '/abundance-app/manta.png',
-    tag: 'abundance-daily',
-    silent: true,
     data: { url: data.url || '/abundance-app/' },
+    requireInteraction: false,
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

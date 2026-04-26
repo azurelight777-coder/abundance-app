@@ -88,6 +88,23 @@ function App() {
     }
   };
 
+  const fireLocalTestNotification = async () => {
+    try {
+      if (Notification.permission !== 'granted') {
+        alert('Enable Daily Pulse first so notifications are allowed.');
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification('Sylvia', {
+        body: 'A test pulse, gliding to you. If you see this, the notification path is open.',
+        icon: '/abundance-app/manta.png',
+        badge: '/abundance-app/manta.png',
+      });
+    } catch (err) {
+      alert('Could not fire local notification: ' + err.message);
+    }
+  };
+
   const disableNotifications = async () => {
     setNotificationStatus('working');
     try {
@@ -680,6 +697,14 @@ function App() {
                 <p className="text-xs text-phthalo-700 mt-2">
                   Each day's deposit notification will arrive in Jupiter's hour for that day.
                 </p>
+                {isSubscribed && (
+                  <button
+                    onClick={fireLocalTestNotification}
+                    className="w-full mt-2 bg-phthalo-900/50 hover:bg-phthalo-700 text-phthalo-700 hover:text-oldgold-400 font-medium py-2 rounded-xl text-xs transition-colors border border-phthalo-700/50"
+                  >
+                    Fire test notification
+                  </button>
+                )}
               </div>
 
               <div className="border-t border-phthalo-700/50 pt-4 mt-2">
