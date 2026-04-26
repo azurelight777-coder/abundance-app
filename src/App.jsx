@@ -43,6 +43,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const todayStr = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    setExpandedDates(prev => (prev[todayStr] === undefined ? { ...prev, [todayStr]: true } : prev));
+  }, []);
+
+  useEffect(() => {
     if (startDate) {
       const calculateDays = () => {
         const now = new Date();
@@ -146,11 +151,6 @@ function App() {
   const sortedDates = Object.keys(groupedHistory).sort((a, b) => new Date(b) - new Date(a));
   
   const todaysDateStr = sortedDates[0];
-
-  // Initialize today as expanded
-  if (todaysDateStr && expandedDates[todaysDateStr] === undefined) {
-    setExpandedDates(prev => ({ ...prev, [todaysDateStr]: true }));
-  }
 
   const formatCurrency = (amount, currency = 'LKR') => {
     return new Intl.NumberFormat('en-LK', {
@@ -338,9 +338,9 @@ function App() {
         </div>
       </section>
 
-      {/* Sleeping Sakura Dragon */}
+      {/* Ancient Dragon */}
       <div className="flex justify-center mt-8 mb-4 opacity-80 mix-blend-screen pointer-events-none">
-        <img src={`${BASE_URL}sakura_dragon.png`} className="w-full max-w-sm object-contain" alt="Sleeping Sakura Dragon" />
+        <img src={`${BASE_URL}ancient_dragon.png`} className="w-full max-w-sm object-contain" alt="Ancient Dragon" />
       </div>
 
       <div className="fixed bottom-6 right-6 z-20">
@@ -458,7 +458,7 @@ function App() {
               </div>
               
               <button type="submit" className="w-full bg-oldgold-500 hover:bg-oldgold-400 text-phthalo-900 font-bold tracking-wide uppercase py-3.5 rounded-xl mt-4 transition-colors shadow-[0_0_15px_rgba(197,160,89,0.2)]">
-                Manifest
+                {txType === 'expense' ? 'Into the Flow of Abundance' : 'Anchor Energy'}
               </button>
             </form>
           </div>
